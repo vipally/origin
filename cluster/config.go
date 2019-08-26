@@ -13,6 +13,7 @@ type CNodeCfg struct {
 	ServerAddr  string
 	ServiceList []string
 	ClusterNode []string
+	Group       string //节点所属组
 }
 
 type CNode struct {

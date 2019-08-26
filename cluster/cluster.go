@@ -2,19 +2,28 @@ package cluster
 
 import (
 	"fmt"
-	"math/rand"
+	//"math/rand"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/duanhf2012/origin/sysmodule"
-
-	"github.com/duanhf2012/origin/service"
-
 	"github.com/duanhf2012/origin/rpc"
+	"github.com/duanhf2012/origin/service"
+	"github.com/duanhf2012/origin/sysmodule"
 )
+
+var _self *CCluster
+
+func InstanceClusterMgr() *CCluster {
+	if _self == nil {
+		_self = new(CCluster)
+		_self.innerLocalServiceList = make(map[string]bool)
+		return _self
+	}
+	return _self
+}
 
 type RpcClient struct {
 	nodeid     int
@@ -223,47 +232,6 @@ func (slf *CCluster) Start() error {
 	return nil
 }
 
-//servicename.methodname
-//_servicename.methodname
-func (slf *CCluster) Call(NodeServiceMethod string, args interface{}, reply interface{}) error {
-	var callServiceName string
-	var serviceName string
-	nodeidList := slf.GetNodeList(NodeServiceMethod, &callServiceName, &serviceName)
-	if len(nodeidList) > 1 || len(nodeidList) < 1 {
-		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s) find nodes count %d is error.", NodeServiceMethod, len(nodeidList))
-		return fmt.Errorf("CCluster.Call(%s) find nodes count %d is error.", NodeServiceMethod, len(nodeidList))
-	}
-
-	nodeid := nodeidList[0]
-	if nodeid == GetNodeId() {
-		//判断服务是否已经完成初始化
-		iService := service.InstanceServiceMgr().FindService(serviceName)
-		if iService == nil {
-			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s): NodeId %d cannot find service.", NodeServiceMethod, nodeid)
-			return fmt.Errorf("CCluster.Call(%s): NodeId %d cannot find service..", NodeServiceMethod, nodeid)
-		}
-		if iService.IsInit() == false {
-			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s): NodeId %d is not init.", NodeServiceMethod, nodeid)
-			return fmt.Errorf("CCluster.Call(%s): NodeId %d is not init.", NodeServiceMethod, nodeid)
-		}
-		return slf.LocalRpcClient.Call(callServiceName, args, reply)
-	} else {
-		pclient := slf.GetClusterClient(nodeid)
-		if pclient == nil {
-			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s): NodeId %d is not find.", NodeServiceMethod, nodeid)
-			return fmt.Errorf("CCluster.Call(%s): NodeId %d is not find.", NodeServiceMethod, nodeid)
-		}
-		err := pclient.Call(callServiceName, args, reply)
-		if err != nil {
-			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s) is fail:%v.", callServiceName, err)
-		}
-		return err
-	}
-
-	service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s) fail.", NodeServiceMethod)
-	return fmt.Errorf("CCluster.Call(%s) fail.", NodeServiceMethod)
-}
-
 func (slf *CCluster) GetNodeList(NodeServiceMethod string, rpcServerMethod *string, rpcServiceName *string) []int {
 	var nodename string
 	var servicename string
@@ -345,11 +313,56 @@ func (slf *CCluster) GetRpcClientByNodeId(nodeid int) *RpcClient {
 	return pclient
 }
 
+//servicename.methodname
+//_servicename.methodname
+func (slf *CCluster) Call(NodeServiceMethod string, args interface{}, reply interface{}) error {
+	OnRpcRely(0, NodeServiceMethod, "CCluster.Call")
+
+	var callServiceName string
+	var serviceName string
+	nodeidList := slf.GetNodeList(NodeServiceMethod, &callServiceName, &serviceName)
+	if len(nodeidList) > 1 || len(nodeidList) < 1 {
+		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s) find nodes count %d is error.", NodeServiceMethod, len(nodeidList))
+		return fmt.Errorf("CCluster.Call(%s) find nodes count %d is error.", NodeServiceMethod, len(nodeidList))
+	}
+
+	nodeid := nodeidList[0]
+	if nodeid == GetNodeId() {
+		//判断服务是否已经完成初始化
+		iService := service.InstanceServiceMgr().FindService(serviceName)
+		if iService == nil {
+			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s): NodeId %d cannot find service.", NodeServiceMethod, nodeid)
+			return fmt.Errorf("CCluster.Call(%s): NodeId %d cannot find service..", NodeServiceMethod, nodeid)
+		}
+		if iService.IsInit() == false {
+			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s): NodeId %d is not init.", NodeServiceMethod, nodeid)
+			return fmt.Errorf("CCluster.Call(%s): NodeId %d is not init.", NodeServiceMethod, nodeid)
+		}
+		return slf.LocalRpcClient.Call(callServiceName, args, reply)
+	} else {
+		pclient := slf.GetClusterClient(nodeid)
+		if pclient == nil {
+			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s): NodeId %d is not find.", NodeServiceMethod, nodeid)
+			return fmt.Errorf("CCluster.Call(%s): NodeId %d is not find.", NodeServiceMethod, nodeid)
+		}
+		err := pclient.Call(callServiceName, args, reply)
+		if err != nil {
+			service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s) is fail:%v.", callServiceName, err)
+		}
+		return err
+	}
+
+	service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.Call(%s) fail.", NodeServiceMethod)
+	return fmt.Errorf("CCluster.Call(%s) fail.", NodeServiceMethod)
+}
+
 func (slf *CCluster) Go(bCast bool, NodeServiceMethod string, args interface{}, queueModle bool) error {
 	return slf.goImpl(bCast, NodeServiceMethod, args, queueModle, true)
 }
 
 func (slf *CCluster) goImpl(bCast bool, NodeServiceMethod string, args interface{}, queueModle bool, log bool) error {
+	OnRpcRely(0, NodeServiceMethod, "CCluster.goImpl")
+
 	var callServiceName string
 	var serviceName string
 	nodeidList := slf.GetNodeList(NodeServiceMethod, &callServiceName, &serviceName)
@@ -412,6 +425,8 @@ func (slf *CCluster) goImpl(bCast bool, NodeServiceMethod string, args interface
 }
 
 func (slf *CCluster) CallNode(nodeid int, servicemethod string, args interface{}, reply interface{}) error {
+	OnRpcRely(nodeid, servicemethod, "CCluster.CallNode")
+
 	pclient := slf.GetClusterClient(nodeid)
 	if pclient == nil {
 		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallNode(%d,%s) NodeId not find client", nodeid, servicemethod)
@@ -427,6 +442,8 @@ func (slf *CCluster) CallNode(nodeid int, servicemethod string, args interface{}
 }
 
 func (slf *CCluster) GoNode(nodeid int, args interface{}, servicemethod string, queueModle bool) error {
+	OnRpcRely(nodeid, servicemethod, "CCluster.GoNode")
+
 	pclient := slf.GetClusterClient(nodeid)
 	if pclient == nil {
 		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.GoNode(%d,%s) NodeId not find client", nodeid, servicemethod)
@@ -447,49 +464,49 @@ func (ws *CCluster) OnFetchService(iservice service.IService) error {
 	return nil
 }
 
-func (slf *CCluster) CallRandomService(NodeServiceMethod string, args interface{}, reply interface{}) error {
-	var servicename string
-	parts := strings.Split(NodeServiceMethod, ".")
-	if len(parts) == 2 {
-		servicename = parts[0]
-	} else {
-		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) method err", NodeServiceMethod)
-		return fmt.Errorf("CCluster.GoNode(%s) NodeId method err", NodeServiceMethod)
-	}
+// func (slf *CCluster) CallRandomService(NodeServiceMethod string, args interface{}, reply interface{}) error {
+// 	var servicename string
+// 	parts := strings.Split(NodeServiceMethod, ".")
+// 	if len(parts) == 2 {
+// 		servicename = parts[0]
+// 	} else {
+// 		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) method err", NodeServiceMethod)
+// 		return fmt.Errorf("CCluster.GoNode(%s) NodeId method err", NodeServiceMethod)
+// 	}
 
-	nodeList := slf.GetNodeIdByServiceName(servicename, true)
-	if len(nodeList) < 1 {
-		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) no node is online", NodeServiceMethod)
-		return fmt.Errorf("CCluster.GoNode(%s) no node is online", NodeServiceMethod)
-	}
+// 	nodeList := slf.GetNodeIdByServiceName(servicename, true)
+// 	if len(nodeList) < 1 {
+// 		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) no node is online", NodeServiceMethod)
+// 		return fmt.Errorf("CCluster.GoNode(%s) no node is online", NodeServiceMethod)
+// 	}
 
-	nodeIndex := rand.Intn(len(nodeList))
-	nodeID := nodeList[nodeIndex]
+// 	nodeIndex := rand.Intn(len(nodeList))
+// 	nodeID := nodeList[nodeIndex]
 
-	return slf.CallNode(nodeID, NodeServiceMethod, args, reply)
-}
+// 	return slf.CallNode(nodeID, NodeServiceMethod, args, reply)
+// }
 
-func (slf *CCluster) GoRandomService(NodeServiceMethod string, args interface{}, queueModle bool) error {
-	var servicename string
-	parts := strings.Split(NodeServiceMethod, ".")
-	if len(parts) == 2 {
-		servicename = parts[0]
-	} else {
-		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) method err", NodeServiceMethod)
-		return fmt.Errorf("CCluster.GoNode(%s) NodeId method err", NodeServiceMethod)
-	}
+// func (slf *CCluster) GoRandomService(NodeServiceMethod string, args interface{}, queueModle bool) error {
+// 	var servicename string
+// 	parts := strings.Split(NodeServiceMethod, ".")
+// 	if len(parts) == 2 {
+// 		servicename = parts[0]
+// 	} else {
+// 		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) method err", NodeServiceMethod)
+// 		return fmt.Errorf("CCluster.GoNode(%s) NodeId method err", NodeServiceMethod)
+// 	}
 
-	nodeList := slf.GetNodeIdByServiceName(servicename, true)
-	if len(nodeList) < 1 {
-		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) no node is online", NodeServiceMethod)
-		return fmt.Errorf("CCluster.GoNode(%s) no node is online", NodeServiceMethod)
-	}
+// 	nodeList := slf.GetNodeIdByServiceName(servicename, true)
+// 	if len(nodeList) < 1 {
+// 		service.GetLogger().Printf(sysmodule.LEVER_ERROR, "CCluster.CallRandomService(%s) no node is online", NodeServiceMethod)
+// 		return fmt.Errorf("CCluster.GoNode(%s) no node is online", NodeServiceMethod)
+// 	}
 
-	nodeIndex := rand.Intn(len(nodeList))
-	nodeID := nodeList[nodeIndex]
+// 	nodeIndex := rand.Intn(len(nodeList))
+// 	nodeID := nodeList[nodeIndex]
 
-	return slf.GoNode(nodeID, args, NodeServiceMethod, queueModle)
-}
+// 	return slf.GoNode(nodeID, args, NodeServiceMethod, queueModle)
+// }
 
 //向远程服务器调用
 //Node.servicename.methodname
@@ -536,27 +553,16 @@ func GetNodeIdByServiceName(serviceName string, bOnline bool) []int {
 	return InstanceClusterMgr().GetNodeIdByServiceName(serviceName, bOnline)
 }
 
-//随机选择在线的node发送
-func CallRandomService(NodeServiceMethod string, args interface{}, reply interface{}) error {
-	return InstanceClusterMgr().CallRandomService(NodeServiceMethod, args, reply)
-}
-func GoRandomService(NodeServiceMethod string, args interface{}) error {
-	return InstanceClusterMgr().GoRandomService(NodeServiceMethod, args, false)
-}
-func GoRandomServiceQueue(NodeServiceMethod string, args interface{}) error {
-	return InstanceClusterMgr().GoRandomService(NodeServiceMethod, args, true)
-}
-
-var _self *CCluster
-
-func InstanceClusterMgr() *CCluster {
-	if _self == nil {
-		_self = new(CCluster)
-		_self.innerLocalServiceList = make(map[string]bool)
-		return _self
-	}
-	return _self
-}
+// //随机选择在线的node发送
+// func CallRandomService(NodeServiceMethod string, args interface{}, reply interface{}) error {
+// 	return InstanceClusterMgr().CallRandomService(NodeServiceMethod, args, reply)
+// }
+// func GoRandomService(NodeServiceMethod string, args interface{}) error {
+// 	return InstanceClusterMgr().GoRandomService(NodeServiceMethod, args, false)
+// }
+// func GoRandomServiceQueue(NodeServiceMethod string, args interface{}) error {
+// 	return InstanceClusterMgr().GoRandomService(NodeServiceMethod, args, true)
+// }
 
 func (slf *CCluster) GetIdByNodeService(NodeName string, serviceName string) []int {
 	return slf.cfg.GetIdByNodeService(NodeName, serviceName)
