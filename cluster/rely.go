@@ -168,7 +168,7 @@ func (slf *relyMgr) SaveRely() error {
 		}
 	}
 
-	b, _ := json.MarshalIndent(slf.save, "  ", "  ")
+	b, _ := json.MarshalIndent(slf.save, "", "  ")
 	err := ioutil.WriteFile(relyFile, b, os.ModePerm)
 	return err
 }
