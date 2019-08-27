@@ -75,27 +75,39 @@ type relyObj struct {
 }
 type serviceList struct {
 	Count int
-	List  map[string]relyServiceList
+	List  map[string]*relyServiceList
 }
+
+func (slf *serviceList) Init() {
+	slf.List = make(map[string]*relyServiceList)
+}
+
 type relyServiceList struct {
 	Count int
-	List  map[string]methodList
+	List  map[string]*methodList
 }
+
+func (slf *relyServiceList) Init() {
+	slf.List = make(map[string]*methodList)
+}
+
 type methodList struct {
 	Count int
 	List  map[string]bool
 }
+
+func (slf *methodList) Init() {
+	slf.List = make(map[string]bool)
+}
+
 type relyMgr struct {
 	ch   chan relyObj
-	save struct {
-		Count int
-		Rely  map[string]serviceList //service->relyService->method+way
-	}
+	save serviceList //service->relyService->method+way
 }
 
 func (slf *relyMgr) Init() {
 	slf.ch = make(chan relyObj, 10240)
-	slf.save.Rely = make(map[string]serviceList)
+	slf.save.Init()
 	if b, err := ioutil.ReadFile(relyFile); err == nil {
 		json.Unmarshal(b, &slf.save)
 	}
@@ -127,9 +139,7 @@ func (slf *relyMgr) goWorker() {
 		case <-timer.C:
 			if update {
 				update = false
-				slf.save.Count = len(slf.save.Rely)
-				b, _ := json.MarshalIndent(slf.save, "  ", "  ")
-				ioutil.WriteFile(relyFile, b, os.ModePerm)
+				slf.SaveRely()
 			}
 		case obj := <-slf.ch:
 			if slf.mergeObj(obj) {
@@ -139,23 +149,52 @@ func (slf *relyMgr) goWorker() {
 	}
 }
 
+func (slf *relyMgr) SaveRely() error {
+	var save serviceList
+	if b, err := ioutil.ReadFile(relyFile); err == nil {
+		json.Unmarshal(b, save)
+	}
+
+	for service, p1 := range save.List {
+		for relyService, p2 := range p1.List {
+			for relyMethod, _ := range p2.List {
+				obj := relyObj{
+					service:     service,
+					relyService: relyService,
+					relyMethod:  relyMethod,
+				}
+				slf.mergeObj(obj)
+			}
+		}
+	}
+
+	b, _ := json.MarshalIndent(slf.save, "  ", "  ")
+	err := ioutil.WriteFile(relyFile, b, os.ModePerm)
+	return err
+}
+
 func (slf *relyMgr) mergeObj(obj relyObj) bool {
 	update := false
-	mp1, ok1 := slf.save.Rely[obj.service]
+	mp1, ok1 := slf.save.List[obj.service]
 	if !ok1 {
-		mp1 = make(map[string]map[string]bool)
-		slf.save.Rely[obj.service] = mp1
+		mp1 = &relyServiceList{}
+		mp1.Init()
+		slf.save.List[obj.service] = mp1
+		slf.save.Count = len(slf.save.List)
 		update = true
 	}
-	mp2, ok2 := mp1[obj.relyService]
+	mp2, ok2 := mp1.List[obj.relyService]
 	if !ok2 {
-		mp2 = make(map[string]bool)
-		mp1[obj.relyService] = mp2
+		mp2 = &methodList{}
+		mp2.Init()
+		mp1.List[obj.relyService] = mp2
+		mp1.Count = len(mp1.List)
 		update = true
 	}
-	_, ok3 := mp2[obj.relyMethod]
+	_, ok3 := mp2.List[obj.relyMethod]
 	if !ok3 {
-		mp2[obj.relyMethod] = true
+		mp2.List[obj.relyMethod] = true
+		mp2.Count = len(mp2.List)
 		update = true
 	}
 	return update
