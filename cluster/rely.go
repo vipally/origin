@@ -126,7 +126,7 @@ func (slf *relyMgr) Push(service, method, way string, nodeId int) {
 	var obj = relyObj{
 		service:     service,
 		relyService: relyService,
-		relyMethod:  fmt.Sprintf("%s_%s_%d", relyMethod, way, nodeId),
+		relyMethod:  fmt.Sprintf("%s|%s|%d", relyMethod, way, nodeId),
 	}
 	slf.ch <- obj
 }
