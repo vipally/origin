@@ -2,9 +2,13 @@ package cluster
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const (
@@ -48,9 +52,82 @@ func CallerService() string {
 			}
 		}
 	}
-	return "???" + Bts()
+	return "???" //+ Bts()
 }
 
 func OnRpcRely(nodeId int, method string, way string) {
-	fmt.Printf("service rely: %s nodeId=%d method=%s Bts=%s\n", way, nodeId, method, CallerService())
+	//fmt.Printf("service rely: %s nodeId=%d method=%s Bts=%s\n", way, nodeId, method, CallerService())
+	relys.Push(CallerService(), method, way, nodeId)
+}
+
+var relys relyMgr
+
+func init() {
+	relys.Init()
+}
+
+type relyObj struct {
+	service     string
+	relyService string
+	relyMethod  string
+}
+type relyMgr struct {
+	ch chan relyObj
+	mp map[string]map[string]map[string]bool //service->relyService->method+way
+}
+
+func (slf *relyMgr) Init() {
+	slf.ch = make(chan relyObj, 10240)
+	slf.mp = make(map[string]map[string]map[string]bool)
+	go slf.goWorker()
+}
+
+func (slf *relyMgr) Push(service, method, way string, nodeId int) {
+	mm := strings.Split(method, ".")
+	relyService, relyMethod := "??", "??"
+	switch {
+	case len(mm) >= 2:
+		relyService, relyMethod = mm[0], mm[1]
+	case len(mm) >= 1:
+		relyMethod = mm[0]
+	}
+	var obj = relyObj{
+		service:     service,
+		relyService: relyService,
+		relyMethod:  fmt.Sprintf("%s_%s_%d", relyMethod, way, nodeId),
+	}
+	slf.ch <- obj
+}
+
+func (slf *relyMgr) goWorker() {
+	timer := time.NewTimer(time.Minute / 3)
+	for {
+		update := false
+		select {
+		case <-timer.C:
+			if update {
+				update = false
+				b, _ := json.MarshalIndent(slf.mp, "  ", "")
+				ioutil.WriteFile("rpc_rely.json", b, os.ModePerm)
+			}
+		case obj := <-slf.ch:
+			mp1, ok1 := slf.mp[obj.service]
+			if !ok1 {
+				mp1 = make(map[string]map[string]bool)
+				slf.mp[obj.service] = mp1
+				update = true
+			}
+			mp2, ok2 := mp1[obj.relyService]
+			if !ok2 {
+				mp2 = make(map[string]bool)
+				mp1[obj.relyService] = mp2
+				update = true
+			}
+			_, ok3 := mp2[obj.relyMethod]
+			if !ok3 {
+				mp2[obj.relyMethod] = true
+				update = true
+			}
+		}
+	}
 }

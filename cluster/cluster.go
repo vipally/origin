@@ -316,7 +316,7 @@ func (slf *CCluster) GetRpcClientByNodeId(nodeid int) *RpcClient {
 //servicename.methodname
 //_servicename.methodname
 func (slf *CCluster) Call(NodeServiceMethod string, args interface{}, reply interface{}) error {
-	OnRpcRely(0, NodeServiceMethod, "CCluster.Call")
+	OnRpcRely(0, NodeServiceMethod, "Call")
 
 	var callServiceName string
 	var serviceName string
@@ -361,7 +361,7 @@ func (slf *CCluster) Go(bCast bool, NodeServiceMethod string, args interface{}, 
 }
 
 func (slf *CCluster) goImpl(bCast bool, NodeServiceMethod string, args interface{}, queueModle bool, log bool) error {
-	OnRpcRely(0, NodeServiceMethod, "CCluster.goImpl")
+	OnRpcRely(0, NodeServiceMethod, "goImpl")
 
 	var callServiceName string
 	var serviceName string
@@ -425,7 +425,7 @@ func (slf *CCluster) goImpl(bCast bool, NodeServiceMethod string, args interface
 }
 
 func (slf *CCluster) CallNode(nodeid int, servicemethod string, args interface{}, reply interface{}) error {
-	OnRpcRely(nodeid, servicemethod, "CCluster.CallNode")
+	OnRpcRely(nodeid, servicemethod, "CallNode")
 
 	pclient := slf.GetClusterClient(nodeid)
 	if pclient == nil {
@@ -442,7 +442,7 @@ func (slf *CCluster) CallNode(nodeid int, servicemethod string, args interface{}
 }
 
 func (slf *CCluster) GoNode(nodeid int, args interface{}, servicemethod string, queueModle bool) error {
-	OnRpcRely(nodeid, servicemethod, "CCluster.GoNode")
+	OnRpcRely(nodeid, servicemethod, "GoNode")
 
 	pclient := slf.GetClusterClient(nodeid)
 	if pclient == nil {
