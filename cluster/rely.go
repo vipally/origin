@@ -60,6 +60,8 @@ func OnRpcRely(nodeId int, method string, way string) {
 	relys.Push(CallerService(), method, way, nodeId)
 }
 
+const relyFile = "rpc_rely.json"
+
 var relys relyMgr
 
 func init() {
@@ -71,14 +73,32 @@ type relyObj struct {
 	relyService string
 	relyMethod  string
 }
+type serviceList struct {
+	Count int
+	List  map[string]relyServiceList
+}
+type relyServiceList struct {
+	Count int
+	List  map[string]methodList
+}
+type methodList struct {
+	Count int
+	List  map[string]bool
+}
 type relyMgr struct {
-	ch chan relyObj
-	mp map[string]map[string]map[string]bool //service->relyService->method+way
+	ch   chan relyObj
+	save struct {
+		Count int
+		Rely  map[string]serviceList //service->relyService->method+way
+	}
 }
 
 func (slf *relyMgr) Init() {
 	slf.ch = make(chan relyObj, 10240)
-	slf.mp = make(map[string]map[string]map[string]bool)
+	slf.save.Rely = make(map[string]serviceList)
+	if b, err := ioutil.ReadFile(relyFile); err == nil {
+		json.Unmarshal(b, &slf.save)
+	}
 	go slf.goWorker()
 }
 
@@ -100,34 +120,43 @@ func (slf *relyMgr) Push(service, method, way string, nodeId int) {
 }
 
 func (slf *relyMgr) goWorker() {
-	timer := time.NewTimer(time.Minute / 3)
+	timer := time.NewTimer(time.Minute)
+	update := false
 	for {
-		update := false
 		select {
 		case <-timer.C:
 			if update {
 				update = false
-				b, _ := json.MarshalIndent(slf.mp, "  ", "")
-				ioutil.WriteFile("rpc_rely.json", b, os.ModePerm)
+				slf.save.Count = len(slf.save.Rely)
+				b, _ := json.MarshalIndent(slf.save, "  ", "  ")
+				ioutil.WriteFile(relyFile, b, os.ModePerm)
 			}
 		case obj := <-slf.ch:
-			mp1, ok1 := slf.mp[obj.service]
-			if !ok1 {
-				mp1 = make(map[string]map[string]bool)
-				slf.mp[obj.service] = mp1
-				update = true
-			}
-			mp2, ok2 := mp1[obj.relyService]
-			if !ok2 {
-				mp2 = make(map[string]bool)
-				mp1[obj.relyService] = mp2
-				update = true
-			}
-			_, ok3 := mp2[obj.relyMethod]
-			if !ok3 {
-				mp2[obj.relyMethod] = true
+			if slf.mergeObj(obj) {
 				update = true
 			}
 		}
 	}
+}
+
+func (slf *relyMgr) mergeObj(obj relyObj) bool {
+	update := false
+	mp1, ok1 := slf.save.Rely[obj.service]
+	if !ok1 {
+		mp1 = make(map[string]map[string]bool)
+		slf.save.Rely[obj.service] = mp1
+		update = true
+	}
+	mp2, ok2 := mp1[obj.relyService]
+	if !ok2 {
+		mp2 = make(map[string]bool)
+		mp1[obj.relyService] = mp2
+		update = true
+	}
+	_, ok3 := mp2[obj.relyMethod]
+	if !ok3 {
+		mp2[obj.relyMethod] = true
+		update = true
+	}
+	return update
 }
