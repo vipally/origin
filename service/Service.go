@@ -28,6 +28,9 @@ type IService interface {
 
 	GetStatus() int
 	IsInit() bool
+
+	DeclareRelyServices() []string            //声明RPC依赖的Service列表
+	GetDeepRelyServices() map[string]struct{} //获取深度依赖的Service列表
 }
 
 type BaseService struct {
@@ -40,10 +43,41 @@ type BaseService struct {
 	Status      int
 }
 
-// //定义直接依赖的Service 由具体实现Service提供
-// func (slf *BaseService) DeclareRelyServices() []string {
-// 	return []string{}
-// }
+//声明RPC依赖的Service列表
+//定义直接依赖的Service 由具体实现Service提供 默认谁也不依赖
+func (slf *BaseService) DeclareRelyServices() []string {
+	return []string{}
+}
+
+func (slf *BaseService) GetDeepRelyServices() map[string]struct{} {
+	root := slf.GetOwnerService()
+	list := root.DeclareRelyServices()
+	mp := map[string]struct{}{}
+	for _, rely := range list {
+		slf.deepCollectRelyService(rely, 1, mp)
+	}
+	return mp
+}
+
+func (slf *BaseService) deepCollectRelyService(relyService string, depth int, mp map[string]struct{}) int {
+	root := slf.GetOwnerService()
+	if _, ok := mp[relyService]; ok || depth >= 20 {
+		GetLogger().Printf(LEVER_ERROR, "deepCollectRelyService %s->%s: rely service exists or too deep %d", root.GetServiceName(), relyService, depth)
+		return 0
+	}
+	iService := InstanceServiceMgr().FindService(relyService)
+	if iService == nil {
+		GetLogger().Printf(LEVER_ERROR, "%s deepCollectRelyService: cannot find rely service %s", root.GetServiceName(), relyService)
+		return 0
+	}
+	mp[relyService] = struct{}{}
+	list := iService.DeclareRelyServices()
+	count := 1
+	for _, rely := range list {
+		count += slf.deepCollectRelyService(rely, depth+1, mp)
+	}
+	return count
+}
 
 // //添加依赖的服务声明
 // func (slf *BaseService) AddRelyService(depth int, relys ...string) int {
