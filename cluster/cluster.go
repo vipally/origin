@@ -592,6 +592,18 @@ func (slf *CCluster) AddLocalService(iservice service.IService) {
 	slf.innerLocalServiceList[servicename] = true
 }
 
+func (slf *CCluster) GetNodeServiceList(nodeId int) []string {
+	return _self.cfg.GetNodeServiceList(nodeId)
+}
+
+func (slf *CCluster) GetAllNodeList() []int {
+	return _self.cfg.GetAllNodeList()
+}
+
+func (slf *CCluster) GetAllReachableServices(nodeId int) map[string]int {
+	return _self.cfg.GetAllReachableServices(nodeId)
+}
+
 func GetNodeName(nodeid int) string {
 	return _self.cfg.GetNodeNameByNodeId(nodeid)
 }
@@ -608,12 +620,4 @@ func DynamicCall(address string, serviceMethod string, args interface{}, reply i
 	}
 
 	return nil
-}
-
-func GetAllNodeList() []int {
-	return _self.cfg.GetAllNodeList()
-}
-
-func GetAllReachableServices(nodeId int) map[string]int {
-	return _self.cfg.GetAllReachableServices(nodeId)
 }

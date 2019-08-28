@@ -86,7 +86,7 @@ func (s *COriginNode) Start() {
 	//开启所有服务
 	service.InstanceServiceMgr().Start()
 
-	if err := s.checkServicesRelys(); err != nil {
+	if nErr := s.checkServicesRelys(); nErr > 0 {
 		os.Exit(-1)
 	}
 
@@ -102,9 +102,30 @@ func (s *COriginNode) Start() {
 	service.GetLogger().Printf(sysmodule.LEVER_INFO, "Node stop run...")
 }
 
-func (s *COriginNode) checkServicesRelys() error {
-	//nodes:=
-	return nil
+//检查所有的service依赖是否可达
+func (s *COriginNode) checkServicesRelys() int {
+	nErr := 0
+	nodes := cluster.InstanceClusterMgr().GetAllNodeList()
+	for _, nodeId := range nodes {
+		reachable := cluster.InstanceClusterMgr().GetAllReachableServices(nodeId)
+		if list := cluster.InstanceClusterMgr().GetNodeServiceList(nodeId); list != nil {
+			for _, name := range list {
+				svs := service.InstanceServiceMgr().FindNonLocalService(name)
+				if svs == nil {
+					service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: cannot find service %s at node %d", name, nodeId)
+					continue
+				}
+				relys := svs.GetDeepRelyServices()
+				for rely, _ := range relys {
+					if _, ok := reachable[rely]; !ok {
+						service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: cannot reach rely service %s at node %d", rely, nodeId)
+						nErr++
+					}
+				}
+			}
+		}
+	}
+	return nErr
 }
 
 func (s *COriginNode) Stop() {

@@ -33,6 +33,22 @@ type ClusterConfig struct {
 	mapClusterServiceNode map[string][]CNode //map[servicename] []CNode
 }
 
+func (slf *ClusterConfig) GetNodeServiceList(nodeId int) []string {
+	var node *CNodeCfg
+
+	for i := len(slf.NodeList) - 1; i >= 0; i-- {
+		p := &slf.NodeList[i]
+		if p.NodeID == nodeId {
+			node = p
+			break
+		}
+	}
+	if node == nil {
+		return nil
+	}
+	return node.ServiceList
+}
+
 func (slf *ClusterConfig) GetAllNodeList() []int {
 	out := make([]int, 0, len(slf.NodeList))
 	for _, v := range slf.NodeList {
