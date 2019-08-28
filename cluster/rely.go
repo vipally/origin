@@ -84,6 +84,7 @@ func (slf *serviceList) Init() {
 
 type relyServiceList struct {
 	Count int
+	Relys []string
 	List  map[string]*methodList
 }
 
@@ -189,6 +190,7 @@ func (slf *relyMgr) mergeObj(obj relyObj) bool {
 		mp2.Init()
 		mp1.List[obj.relyService] = mp2
 		mp1.Count = len(mp1.List)
+		mp1.Relys = append(mp1.Relys, obj.relyService)
 		update = true
 	}
 	_, ok3 := mp2.List[obj.relyMethod]
