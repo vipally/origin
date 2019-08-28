@@ -41,15 +41,15 @@ func (s *COriginNode) Init() {
 
 	s.SetupService(initservicelist...)
 
-	//检查所有的依赖Service是否可达
-	if nErr := s.checkServicesRelys(); nErr > 0 {
-		os.Exit(-1)
-	}
-
 	//初始化全局模块
 	logger := service.InstanceServiceMgr().FindService("syslog").(service.ILogger)
 	ret := service.InstanceServiceMgr().Init(logger, s.exitChan, s.waitGroup)
 	if ret == false {
+		os.Exit(-1)
+	}
+
+	//检查所有的依赖Service是否可达
+	if nErr := s.checkServicesRelys(); nErr > 0 {
 		os.Exit(-1)
 	}
 
