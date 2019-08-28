@@ -17,6 +17,30 @@ type CServiceManager struct {
 	localserviceMap   map[string]IService
 	logger            ILogger
 	orderLocalService []string
+
+	allServiceMap map[string]IService //保存所有loacal&non-local Service对象
+}
+
+func (slf *CServiceManager) AddNonLocalService(s IService) bool {
+	s.(IModule).SetOwnerService(s)
+	s.(IModule).SetOwner(s.(IModule))
+	s.(IModule).SetSelf(s.(IModule))
+	name := s.GetServiceName()
+	if _, ok := slf.allServiceMap[name]; ok {
+		GetLogger().Printf(LEVER_ERROR, "CServiceManager.AddNonLocalRefer %s duplicate", name)
+		return false
+	}
+	slf.allServiceMap[name] = s
+	return true
+}
+
+func (slf *CServiceManager) FindNonLocalService(serviceName string) IService {
+	service, ok := slf.localserviceMap[serviceName]
+	if ok {
+		return service
+	}
+
+	return nil
 }
 
 func (slf *CServiceManager) Setup(s IService) bool {
@@ -27,7 +51,7 @@ func (slf *CServiceManager) Setup(s IService) bool {
 
 	slf.localserviceMap[s.GetServiceName()] = s
 	slf.orderLocalService = append(slf.orderLocalService, s.GetServiceName())
-
+	slf.allServiceMap[s.GetServiceName()] = s
 
 	//通知其他服务已经安装
 	for _, is := range slf.localserviceMap {
@@ -111,6 +135,7 @@ func InstanceServiceMgr() *CServiceManager {
 	if self == nil {
 		self = new(CServiceManager)
 		self.localserviceMap = make(map[string]IService)
+		self.allServiceMap = make(map[string]IService)
 		return self
 	}
 

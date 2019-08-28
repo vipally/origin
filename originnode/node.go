@@ -67,6 +67,8 @@ func (s *COriginNode) SetupService(services ...service.IService) {
 
 		if cluster.InstanceClusterMgr().HasLocalService(services[i].GetServiceName()) == true {
 			service.InstanceServiceMgr().Setup(services[i])
+		} else {
+			service.InstanceServiceMgr().AddNonLocalService(services[i]) //不是本地的service也把对象加进去 方便检查依赖
 		}
 	}
 }
@@ -84,6 +86,10 @@ func (s *COriginNode) Start() {
 	//开启所有服务
 	service.InstanceServiceMgr().Start()
 
+	if err := s.checkServicesRelys(); err != nil {
+		os.Exit(-1)
+	}
+
 	//监听退出信号
 	select {
 	case <-s.sigs:
@@ -94,6 +100,11 @@ func (s *COriginNode) Start() {
 	//停止运行程序
 	s.Stop()
 	service.GetLogger().Printf(sysmodule.LEVER_INFO, "Node stop run...")
+}
+
+func (s *COriginNode) checkServicesRelys() error {
+	//nodes:=
+	return nil
 }
 
 func (s *COriginNode) Stop() {

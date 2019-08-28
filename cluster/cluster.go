@@ -609,3 +609,11 @@ func DynamicCall(address string, serviceMethod string, args interface{}, reply i
 
 	return nil
 }
+
+func GetAllNodeList() []int {
+	return _self.cfg.GetAllNodeList()
+}
+
+func GetAllReachableServices(nodeId int) map[string]int {
+	return _self.cfg.GetAllReachableServices(nodeId)
+}
