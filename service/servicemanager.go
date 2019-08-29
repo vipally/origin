@@ -35,7 +35,7 @@ func (slf *CServiceManager) AddNonLocalService(s IService) bool {
 }
 
 func (slf *CServiceManager) FindNonLocalService(serviceName string) IService {
-	service, ok := slf.localserviceMap[serviceName]
+	service, ok := slf.allServiceMap[serviceName]
 	if ok {
 		return service
 	}

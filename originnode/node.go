@@ -113,13 +113,13 @@ func (s *COriginNode) checkServicesRelys() int {
 			for _, name := range list {
 				svs := service.InstanceServiceMgr().FindNonLocalService(name)
 				if svs == nil {
-					service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: cannot find service %s at node %d", name, nodeId)
+					service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: service %s at node %d does not exists", name, nodeId)
 					continue
 				}
 				relys := svs.GetDeepRelyServices()
 				for rely, _ := range relys {
 					if _, ok := reachable[rely]; !ok {
-						service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: cannot reach rely service %s at node %d", rely, nodeId)
+						service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: rely service %s->%s at node %d is non-reachable", name, rely, nodeId)
 						nErr++
 					}
 				}

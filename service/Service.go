@@ -66,7 +66,7 @@ func (slf *BaseService) deepCollectRelyService(relyService string, depth int, mp
 		GetLogger().Printf(LEVER_ERROR, "deepCollectRelyService %s->%s: rely service exists or too deep %d/%d", root.GetServiceName(), relyService, depth, maxDepth)
 		return 0
 	}
-	iService := InstanceServiceMgr().FindService(relyService)
+	iService := InstanceServiceMgr().FindNonLocalService(relyService)
 	if iService == nil {
 		GetLogger().Printf(LEVER_ERROR, "%s deepCollectRelyService: cannot find rely service %s", root.GetServiceName(), relyService)
 		return 0
