@@ -62,8 +62,11 @@ func (slf *BaseService) GetDeepRelyServices() map[string]struct{} {
 func (slf *BaseService) deepCollectRelyService(relyService string, depth int, mp map[string]struct{}) int {
 	root := slf.GetOwnerService()
 	const maxDepth = 20
-	if _, ok := mp[relyService]; ok || depth >= maxDepth {
-		GetLogger().Printf(LEVER_ERROR, "deepCollectRelyService %s->%s: rely service is exists or too deep %d/%d", root.GetServiceName(), relyService, depth, maxDepth)
+	if _, ok := mp[relyService]; ok { //已经依赖过了，不要循环依赖
+		return 0
+	}
+	if depth >= maxDepth {
+		GetLogger().Printf(LEVER_ERROR, "deepCollectRelyService %s->%s: rely too deep %d/%d", root.GetServiceName(), relyService, depth, maxDepth)
 		return 0
 	}
 	iService := InstanceServiceMgr().FindNonLocalService(relyService)
