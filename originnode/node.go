@@ -50,7 +50,10 @@ func (s *COriginNode) Init() {
 
 	//检查所有的依赖Service是否可达
 	if nErr := s.checkServicesRelys(); nErr > 0 {
-		os.Exit(-1)
+		service.GetLogger().Printf(sysmodule.LEVER_FATAL, "checkServicesRelys: with %d error(s)", nErr)
+		if cluster.DebugMode() { //调试模式配置有错误不让运行
+			os.Exit(-1)
+		}
 	}
 
 	util.Log = logger.Printf
@@ -114,6 +117,7 @@ func (s *COriginNode) checkServicesRelys() int {
 				svs := service.InstanceServiceMgr().FindNonLocalService(name)
 				if svs == nil {
 					service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: service %s at node %d does not exists", name, nodeId)
+					nErr++
 					continue
 				}
 				relys := svs.GetDeepRelyServices()

@@ -68,7 +68,7 @@ func (slf *BaseService) deepCollectRelyService(relyService string, depth int, mp
 	}
 	iService := InstanceServiceMgr().FindNonLocalService(relyService)
 	if iService == nil {
-		GetLogger().Printf(LEVER_ERROR, "%s deepCollectRelyService: cannot find rely service %s", root.GetServiceName(), relyService)
+		GetLogger().Printf(LEVER_ERROR, "%s deepCollectRelyService: rely service %s does not exists", root.GetServiceName(), relyService)
 		return 0
 	}
 	mp[relyService] = struct{}{}

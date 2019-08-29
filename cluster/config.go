@@ -74,7 +74,8 @@ func (slf *ClusterConfig) GetAllReachableServices(nodeId int) map[string]int {
 		return nil
 	}
 	out := map[string]int{}
-	slf.collectServices(out, node)
+	collectedNode := map[string]int{} //已经收罗过的node就不要重复收罗了
+	slf.collectServices(out, node, collectedNode)
 	for _, nodeName := range node.ClusterNode {
 		if nodeName == node.NodeName { //忽略自己
 			continue
@@ -83,15 +84,19 @@ func (slf *ClusterConfig) GetAllReachableServices(nodeId int) map[string]int {
 		if !ok {
 			fmt.Printf("error: cluster.json do not find node %s for ClusterNode of node %d-%s\n", nodeName, node.NodeID, node.NodeName)
 		}
-		slf.collectServices(out, p)
+		slf.collectServices(out, p, collectedNode)
 	}
 	return out
 }
 
-func (slf *ClusterConfig) collectServices(mp map[string]int, node *CNodeCfg) {
+func (slf *ClusterConfig) collectServices(mp map[string]int, node *CNodeCfg, collectedNode map[string]int) {
+	if _, ok := collectedNode[node.NodeName]; ok { //已经收罗过的node就不要重复收罗了
+		return
+	}
+	collectedNode[node.NodeName] = len(collectedNode) + 1
 	for _, name := range node.ServiceList {
 		if id, ok := mp[name]; ok {
-			fmt.Printf("error: cluster.json duplicate service %s between node %d and %d\n", name, node.NodeID, id)
+			fmt.Printf("error: cluster.json duplicate service %s between node %d-%d\n       nodeList=%v\n", name, node.NodeID, id, collectedNode)
 		}
 		mp[name] = node.NodeID
 	}

@@ -14,7 +14,12 @@ import (
 	"github.com/duanhf2012/origin/sysmodule"
 )
 
+var debugMode = false //调试模式
 var _self *CCluster
+
+func DebugMode() bool {
+	return debugMode
+}
 
 func InstanceClusterMgr() *CCluster {
 	if _self == nil {
@@ -205,8 +210,11 @@ func (slf *CCluster) Init() error {
 	}
 
 	if parts[0] != "NodeId" {
-
 		return fmt.Errorf("Param error not find NodeId=number")
+	}
+
+	if len(os.Args) >= 3 && strings.ToLower(os.Args[2]) == "debug" {
+		debugMode = true
 	}
 
 	slf.nodeclient = make(map[int]*RpcClient)
