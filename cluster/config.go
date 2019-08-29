@@ -90,10 +90,11 @@ func (slf *ClusterConfig) GetAllReachableServices(nodeId int) map[string]int {
 }
 
 func (slf *ClusterConfig) collectServices(mp map[string]int, node *CNodeCfg, collectedNode map[string]int) {
-	if _, ok := collectedNode[node.NodeName]; ok { //已经收罗过的node就不要重复收罗了
+	name := fmt.Sprintf("%d-%s", node.NodeID, node.NodeName)
+	if _, ok := collectedNode[name]; ok { //已经收罗过的node就不要重复收罗了
 		return
 	}
-	collectedNode[node.NodeName] = len(collectedNode) + 1
+	collectedNode[name] = len(collectedNode) + 1
 	for _, name := range node.ServiceList {
 		if id, ok := mp[name]; ok {
 			fmt.Printf("error: cluster.json duplicate service %s between node %d-%d\n       nodeList=%v\n", name, node.NodeID, id, collectedNode)
