@@ -612,6 +612,10 @@ func (slf *CCluster) GetAllReachableServices(nodeId int) map[string]int {
 	return _self.cfg.GetAllReachableServices(nodeId)
 }
 
+func (slf *CCluster) GetAllConfigServiceList() map[string]struct{} {
+	return _self.cfg.GetAllConfigServiceList()
+}
+
 func GetNodeName(nodeid int) string {
 	return _self.cfg.GetNodeNameByNodeId(nodeid)
 }

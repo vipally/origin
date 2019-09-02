@@ -52,7 +52,7 @@ func (s *COriginNode) Init() {
 	if nErr := s.checkServicesRelys(); nErr > 0 {
 		service.GetLogger().Printf(sysmodule.LEVER_FATAL, "checkServicesRelys: with %d error(s)", nErr)
 		if cluster.DebugMode() { //调试模式配置有错误不让运行
-			os.Exit(-1)
+			//os.Exit(-1)
 		}
 	}
 
@@ -109,6 +109,17 @@ func (s *COriginNode) Start() {
 //检查所有的service依赖是否可达
 func (s *COriginNode) checkServicesRelys() int {
 	nErr := 0
+
+	mp := cluster.InstanceClusterMgr().GetAllConfigServiceList()
+	list := service.InstanceServiceMgr().GetAllService()
+	for _, v := range list {
+		name := v.GetServiceName()
+		if _, ok := mp[name]; !ok {
+			service.GetLogger().Printf(sysmodule.LEVER_WARN, "[originCheck 6] checkServicesRelys: service %s does not exists in cluster.json", name)
+		}
+	}
+
+	cluster.SetAllowDuplicateServices(service.InstanceServiceMgr().GetAllowDuplicateService())
 	nodes := cluster.InstanceClusterMgr().GetAllNodeList()
 	for _, nodeId := range nodes {
 		reachable := cluster.InstanceClusterMgr().GetAllReachableServices(nodeId)
@@ -116,20 +127,21 @@ func (s *COriginNode) checkServicesRelys() int {
 			for _, name := range list {
 				svs := service.InstanceServiceMgr().FindNonLocalService(name)
 				if svs == nil {
-					service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: service %s at node %d does not exists", name, nodeId)
+					service.GetLogger().Printf(sysmodule.LEVER_ERROR, "[originCheck 4] checkServicesRelys: service %s at node %d does not exists", name, nodeId)
 					nErr++
 					continue
 				}
 				relys := svs.GetDeepRelyServices()
 				for rely, _ := range relys {
 					if _, ok := reachable[rely]; !ok {
-						service.GetLogger().Printf(sysmodule.LEVER_ERROR, "checkServicesRelys: rely service %s->%s at node %d is non-reachable", name, rely, nodeId)
+						service.GetLogger().Printf(sysmodule.LEVER_ERROR, "[originCheck 5] checkServicesRelys: rely service %s->%s at node %d is non-reachable", name, rely, nodeId)
 						nErr++
 					}
 				}
 			}
 		}
 	}
+
 	return nErr
 }
 

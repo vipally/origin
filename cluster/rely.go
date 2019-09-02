@@ -57,10 +57,10 @@ func CallerService() string {
 
 func OnRpcRely(nodeId int, method string, way string) {
 	//fmt.Printf("service rely: %s nodeId=%d method=%s Bts=%s\n", way, nodeId, method, CallerService())
+	//if DebugMode() {
 	relys.Push(CallerService(), method, way, nodeId)
+	//}
 }
-
-const relyFile = "rpc_rely.json"
 
 var relys relyMgr
 
@@ -136,11 +136,17 @@ func (slf *relyMgr) goWorker() {
 	timer := time.NewTimer(time.Minute)
 	update := false
 	for {
+		// if !DebugMode() {
+		// 	return
+		// }
 		select {
 		case <-timer.C:
 			if update {
 				update = false
-				slf.SaveRely()
+				if err := slf.SaveRely(); err != nil {
+					println("errrrrrrrrrrrrrrrrr", err.Error())
+					//os.Exit(-1)
+				}
 			}
 		case obj := <-slf.ch:
 			if slf.mergeObj(obj) {
@@ -152,6 +158,7 @@ func (slf *relyMgr) goWorker() {
 
 func (slf *relyMgr) SaveRely() error {
 	var save serviceList
+	save.Init()
 	if b, err := ioutil.ReadFile(relyFile); err == nil {
 		json.Unmarshal(b, save)
 	}

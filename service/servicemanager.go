@@ -21,13 +21,31 @@ type CServiceManager struct {
 	allServiceMap map[string]IService //保存所有loacal&non-local Service对象
 }
 
+func (slf *CServiceManager) GetAllowDuplicateService() []string {
+	out := []string{}
+	for k, v := range slf.allServiceMap {
+		if v.AllowDuplicate() {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+func (slf *CServiceManager) GetAllService() []IService {
+	out := make([]IService, 0, len(slf.allServiceMap))
+	for _, v := range slf.allServiceMap {
+		out = append(out, v)
+	}
+	return out
+}
+
 func (slf *CServiceManager) AddNonLocalService(s IService) bool {
 	s.(IModule).SetOwnerService(s)
 	s.(IModule).SetOwner(s.(IModule))
 	s.(IModule).SetSelf(s.(IModule))
 	name := s.GetServiceName()
 	if _, ok := slf.allServiceMap[name]; ok {
-		GetLogger().Printf(LEVER_ERROR, "CServiceManager.AddNonLocalRefer %s duplicate", name)
+		GetLogger().Printf(LEVER_ERROR, "[originCheck 9] CServiceManager.AddNonLocalRefer %s duplicate", name)
 		return false
 	}
 	slf.allServiceMap[name] = s

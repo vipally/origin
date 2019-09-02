@@ -47,6 +47,11 @@ type HttpServerService struct {
 	resourcedir      string //静态资源文件夹绝对路径
 }
 
+//是否允许在互联node重复配置
+func (slf *HttpServerService) AllowDuplicate() bool {
+	return true
+}
+
 func (slf *HttpServerService) OnInit() error {
 	//
 	slf.httpserver.Init(slf.port, slf.initRouterHandler(), 10*time.Second, 10*time.Second)

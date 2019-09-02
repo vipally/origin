@@ -7,6 +7,18 @@ import (
 	"io/ioutil"
 )
 
+var allowDuplicateServices = map[string]struct{}{}
+
+func SetAllowDuplicateServices(s []string) {
+	for _, v := range s {
+		allowDuplicateServices[v] = struct{}{}
+	}
+}
+func allowDuplicate(service string) bool {
+	_, ok := allowDuplicateServices[service]
+	return ok
+}
+
 type CNodeCfg struct {
 	NodeID      int
 	NodeName    string
@@ -33,6 +45,21 @@ type ClusterConfig struct {
 	mapClusterServiceNode map[string][]CNode //map[servicename] []CNode
 }
 
+func (slf *ClusterConfig) GetAllConfigServiceList() map[string]struct{} {
+	mp := map[string]struct{}{}
+	for i := len(slf.NodeList) - 1; i >= 0; i-- {
+		p := &slf.NodeList[i]
+		for _, v := range p.ServiceList {
+			mp[v] = struct{}{}
+		}
+	}
+	for _, v := range slf.PublicServiceList {
+		mp[v] = struct{}{}
+	}
+	mp["syslog"] = struct{}{}
+	return mp
+}
+
 func (slf *ClusterConfig) GetNodeServiceList(nodeId int) []string {
 	var node *CNodeCfg
 
@@ -46,7 +73,11 @@ func (slf *ClusterConfig) GetNodeServiceList(nodeId int) []string {
 	if node == nil {
 		return nil
 	}
-	return node.ServiceList
+	out := make([]string, 0, len(node.ServiceList)+1+len(slf.PublicServiceList))
+	out = append(out, "syslog")
+	out = append(out, slf.PublicServiceList...)
+	out = append(out, node.ServiceList...)
+	return out
 }
 
 func (slf *ClusterConfig) GetAllNodeList() []int {
@@ -63,7 +94,9 @@ func (slf *ClusterConfig) GetAllReachableServices(nodeId int) map[string]int {
 	for i := len(slf.NodeList) - 1; i >= 0; i-- {
 		p := &slf.NodeList[i]
 		if pp, ok := mp[p.NodeName]; ok {
-			fmt.Printf("error: cluster.json duplicate name %s between node %d and %d\n", p.NodeName, p.NodeID, pp.NodeID)
+			if !allowDuplicate(p.NodeName) {
+				fmt.Printf("[originCheck 1] error: cluster.json duplicate name %s between node %d and %d\n", p.NodeName, p.NodeID, pp.NodeID)
+			}
 		}
 		mp[p.NodeName] = p
 		if p.NodeID == nodeId {
@@ -75,6 +108,10 @@ func (slf *ClusterConfig) GetAllReachableServices(nodeId int) map[string]int {
 	}
 	out := map[string]int{}
 	collectedNode := map[string]int{} //已经收罗过的node就不要重复收罗了
+	for _, v := range slf.PublicServiceList {
+		out[v] = 0
+	}
+	out["syslog"] = 0
 	slf.collectServices(out, node, collectedNode)
 	for _, nodeName := range node.ClusterNode {
 		if nodeName == node.NodeName { //忽略自己
@@ -82,7 +119,8 @@ func (slf *ClusterConfig) GetAllReachableServices(nodeId int) map[string]int {
 		}
 		p, ok := mp[nodeName]
 		if !ok {
-			fmt.Printf("error: cluster.json do not find node %s for ClusterNode of node %d-%s\n", nodeName, node.NodeID, node.NodeName)
+			fmt.Printf("[originCheck 2] error: cluster.json do not find node %s for ClusterNode of node %d-%s\n", nodeName, node.NodeID, node.NodeName)
+			continue
 		}
 		slf.collectServices(out, p, collectedNode)
 	}
@@ -97,7 +135,9 @@ func (slf *ClusterConfig) collectServices(mp map[string]int, node *CNodeCfg, col
 	collectedNode[name] = len(collectedNode) + 1
 	for _, name := range node.ServiceList {
 		if id, ok := mp[name]; ok {
-			fmt.Printf("error: cluster.json duplicate service %s between node %d-%d\n       nodeList=%v\n", name, node.NodeID, id, collectedNode)
+			if !allowDuplicate(name) {
+				fmt.Printf("[originCheck 3] error: cluster.json duplicate service %s between node %d-%d\n       nodeList=%v\n", name, node.NodeID, id, collectedNode)
+			}
 		}
 		mp[name] = node.NodeID
 	}

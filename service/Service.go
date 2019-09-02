@@ -31,12 +31,11 @@ type IService interface {
 
 	DeclareRelyServices() []string            //声明RPC依赖的Service列表
 	GetDeepRelyServices() map[string]struct{} //获取深度依赖的Service列表
+	AllowDuplicate() bool                     //是否允许在互联node重复配置
 }
 
 type BaseService struct {
 	BaseModule
-
-	//RelyServices map[string]int //依赖的服务(有RPC需求) ServicesName->relyDepth
 
 	serviceid   int
 	servicename string
@@ -47,6 +46,11 @@ type BaseService struct {
 //定义直接依赖的Service 由具体实现Service提供 默认谁也不依赖
 func (slf *BaseService) DeclareRelyServices() []string {
 	return []string{}
+}
+
+//是否允许在互联node重复配置
+func (slf *BaseService) AllowDuplicate() bool {
+	return false
 }
 
 func (slf *BaseService) GetDeepRelyServices() map[string]struct{} {
@@ -66,12 +70,12 @@ func (slf *BaseService) deepCollectRelyService(relyService string, depth int, mp
 		return 0
 	}
 	if depth >= maxDepth {
-		GetLogger().Printf(LEVER_ERROR, "deepCollectRelyService %s->%s: rely too deep %d/%d", root.GetServiceName(), relyService, depth, maxDepth)
+		GetLogger().Printf(LEVER_ERROR, "[originCheck 7] deepCollectRelyService %s->%s: rely too deep %d/%d", root.GetServiceName(), relyService, depth, maxDepth)
 		return 0
 	}
 	iService := InstanceServiceMgr().FindNonLocalService(relyService)
 	if iService == nil {
-		GetLogger().Printf(LEVER_ERROR, "%s deepCollectRelyService: rely service %s does not exists", root.GetServiceName(), relyService)
+		GetLogger().Printf(LEVER_ERROR, "[originCheck 8] deepCollectRelyService %s: rely service %s does not exists", root.GetServiceName(), relyService)
 		return 0
 	}
 	mp[relyService] = struct{}{}
